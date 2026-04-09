@@ -160,12 +160,12 @@ public:
     int getScore() const { return score; }
 
     int SpecialWin() const {
-        if (getScore() == 21 && getHandSize() == 2) {
-            return 2;
-        }
-        else if (getHand()[0].getRank() == "A" && getHand()[1].getRank() == "A") {
+        
+        if (getHand()[0].getRank() == "A" && getHand()[1].getRank() == "A") {
                 return 3;
-        }   
+        } else if (getScore() == 21 && getHandSize() == 2) {
+            return 2;
+        }  
         else if (getScore() <= 21 && getHandSize() == 5) {
             return 1;
         }   
@@ -301,7 +301,7 @@ public:
     string CheckResult(const Dealer& dealer,const Player& player) {
         int dealerScore = dealer.getScore();
         int playerScore = player.getScore();
-        if (player.SpecialWin() > 0) {
+        if (player.SpecialWin() > 0 || dealer.SpecialWin() > 0) {
             if (dealer.SpecialWin() > player.SpecialWin()) {
                 return "Lose";
             } else if (dealer.SpecialWin() < player.SpecialWin()) {
