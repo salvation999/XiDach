@@ -85,3 +85,81 @@ Dự án tập trung vào việc trả lời các câu hỏi thực tế thông 
 	 GROUP BY ACTION;
    ```
 2. Tỉ lệ nhà cái thắng nếu dừng từ 18đ trở xuống
+   ```sql
+   WITH DealerFinalScore AS (
+    SELECT t.gameID, t.aScore AS FinalScore
+    FROM logturn t
+    INNER JOIN (
+        SELECT gameID, MAX(turnNumber) as max_turn
+        FROM logturn
+        WHERE PlayerID = 0
+        GROUP BY gameID
+    ) m ON t.gameID = m.gameID AND t.turnNumber = m.matx_turn
+    WHERE t.PlayerID = 0
+   )
+   SELECT 
+    f.FinalScore,
+    COUNT(*) AS Total_Games,
+    SUM(CASE WHEN r.Result = 'Win' THEN 1 ELSE 0 END) AS Wins,
+    SUM(CASE WHEN r.Result = 'Lose' THEN 1 ELSE 0 END) AS Losses,
+    ROUND(SUM(CASE WHEN r.Result = 'Win' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS Win_Rate_Percentage
+   FROM loggameresult r
+   JOIN DealerFinalScore f ON r.gameID = f.gameID
+   WHERE r.PlayerID = 0 AND f.FinalScore < 19 AND f.FinalScore > 15
+   GROUP BY f.FinalScore
+   ORDER BY f.FinalScore DESC;
+   ```
+3. Kiểm tra người chơi dừng ở bao nhiêu điểm thì có tỉ lệ thắng cao
+   ```sql
+   SELECT 
+    f.aScore AS FinalScore,
+    COUNT(*) AS Total_Games,
+    SUM(CASE WHEN r.Result = 'Win' THEN 1 ELSE 0 END) AS Wins,
+    ROUND(SUM(CASE WHEN r.Result = 'Win' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS Win_Rate
+   FROM loggameresult r
+   JOIN (
+    SELECT gameID, PlayerID, aScore 
+    FROM logturn 
+    WHERE Action = 'Stand'
+   ) f ON r.gameID = f.gameID AND r.PlayerID = f.PlayerID
+   WHERE r.PlayerID != 0
+   GROUP BY FinalScore
+   ORDER BY FinalScore DESC;
+   ```
+4. Kiểm tra xác suất Nhà Cái thắng ít nhất 1 người và xác suất thắng được cả bàn
+   ```sql
+   SELECT 
+    COUNT(*) AS Total_Games_Simulated,
+    SUM(CASE WHEN Players_Lost >= 1 THEN 1 ELSE 0 END) AS Games_Dealer_Won_At_Least_One,
+    ROUND(SUM(CASE WHEN Players_Lost >= 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS Prob_Win_At_Least_One_Percent,
+    SUM(CASE WHEN Players_Lost = Total_Players_In_Game THEN 1 ELSE 0 END) AS Games_Dealer_Swept,
+    ROUND(SUM(CASE WHEN Players_Lost = Total_Players_In_Game THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS Prob_Sweep_Percent
+   FROM (
+    SELECT 
+        gameID, 
+        COUNT(*) AS Total_Players_In_Game,
+        SUM(CASE WHEN Result = 'Lose' THEN 1 ELSE 0 END) AS Players_Lost
+    FROM loggameresult
+    WHERE PlayerID != 0
+    GROUP BY gameID
+   ) AS GameSummary;
+   ```
+5. Kiểm tra tỷ lệ thắng của Nhà Cái với số lượng người chơi khác nhau
+   ```sql
+   SELECT 
+    sub.NumPlayers AS Players_In_Table,
+    COUNT(*) AS Total_Games,
+    SUM(CASE WHEN r.Result = 'Win' THEN 1 ELSE 0 END) AS Dealer_Wins,
+    SUM(CASE WHEN r.Result = 'Lose' THEN 1 ELSE 0 END) AS Dealer_Losses,
+    SUM(CASE WHEN r.Result = 'Tie' THEN 1 ELSE 0 END) AS Dealer_Ties,
+    ROUND(SUM(CASE WHEN r.Result = 'Win' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS Dealer_Win_Rate_Percent
+   FROM loggameresult r
+   JOIN (
+    SELECT gameID, COUNT(DISTINCT PlayerID) as NumPlayers 
+    FROM loggameresult 
+    WHERE PlayerID != 0 
+    GROUP BY gameID
+   ) sub ON r.gameID = sub.gameID
+   WHERE r.PlayerID = 0
+   GROUP BY sub.NumPlayers
+   ORDER BY sub.NumPlayers ASC;
