@@ -494,6 +494,6 @@ int main() {
     turnFile.close();
     resultFile.close();
     compareFile.close();
-    cout << "End of program!" << endl;
+    cout << "End of program!";
     return 0;
 }
