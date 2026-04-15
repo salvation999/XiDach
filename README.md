@@ -122,7 +122,7 @@ Dự án so sánh 3 nhóm đối tượng điển hình:
 	```sql
 	SELECT 
     	PlayerID,
-    	(MAX(CurrentMoney) - 1000) AS NetProfit,
+    	(MAX(CurrentMoney) - 5000) AS NetProfit,
     	MIN(CurrentMoney) AS LowestPoint,
     	MAX(CurrentMoney) AS HighestPoint
 	FROM loggameresult
