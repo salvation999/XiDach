@@ -95,7 +95,7 @@ private:
 protected:
     string Action; // Lưu hành động của người chơi (Hit hoặc Stand)
 public:
-    Participant(int id) : ID(id), score(0), money(100000), Action(""), numberOfAces(0), numberOfAcesIs1(0), result("") {}
+    Participant(int id) : ID(id), score(0), money(5000), Action(""), numberOfAces(0), numberOfAcesIs1(0), result("") {}
 
     void SetScore(int s) { score = s; }
 
