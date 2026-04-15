@@ -70,7 +70,7 @@ Dự án so sánh 3 nhóm đối tượng điển hình:
 ---
 
 ## 📋 Cách cài đặt và sử dụng 
-1. **Clone repo:** git clone https://github.com/your-username/blackjack-simulation.git
+1. **Clone repo:** git clone https://github.com/salvation999/XiDach.git
 2. **Biên dịch:** Chạy file XiDach.cpp.
 3. **Nhập số ván muốn mô phỏng.**
 4. **Chạy file CreateChart.py để tạo biểu đồ theo dõi tiền.** (Yêu cầu phải cài thư viện Pandas và Mathplotlib)
