@@ -122,11 +122,9 @@ Dự án so sánh 3 nhóm đối tượng điển hình:
 	```sql
 	SELECT 
     	PlayerID,
-    	(MAX(CurrentMoney) - 5000) AS NetProfit,
-    	MIN(CurrentMoney) AS LowestPoint,
-    	MAX(CurrentMoney) AS HighestPoint
+    	CurrentMoney - 5000 AS Profit
 	FROM loggameresult
-	GROUP BY PlayerID;
+	WHERE GameID = (SELECT MAX(GameID) FROM loggameresult);
 	```
 
 3. **Kiểm tra Nhà Cái thắng bao nhiêu trận với mỗi người chơi:**
