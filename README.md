@@ -122,11 +122,9 @@ Dự án so sánh 3 nhóm đối tượng điển hình:
 	```sql
 	SELECT 
     	PlayerID,
-    	(MAX(CurrentMoney) - 5000) AS NetProfit,
-    	MIN(CurrentMoney) AS LowestPoint,
-    	MAX(CurrentMoney) AS HighestPoint
+    	CurrentMoney - 5000 AS Profit
 	FROM loggameresult
-	GROUP BY PlayerID;
+	WHERE GameID = (SELECT MAX(GameID) FROM loggameresult);
 	```
 
 3. **Kiểm tra Nhà Cái thắng bao nhiêu trận với mỗi người chơi:**
@@ -163,3 +161,37 @@ Dự án so sánh 3 nhóm đối tượng điển hình:
 	GROUP BY CardCount, Result
 	ORDER BY CardCount;
 	```
+
+6. **Kiểm tra lợi nhuận của Nhà Cái nếu rút thêm tại 15đ và 16đ so với việc dừng lại:**
+   ```sql
+   SELECT
+		DealerPointsIfStayed,
+		COUNT(*) AS Total_Cases,
+		SUM(StayedProfit) AS TotalPotentialProfit,
+		SUM(ActualProfit) AS TotalActualProfit,
+		ROUND((SUM(ActualProfit) - SUM(StayedProfit)) * 100.0 / NULLIF(ABS(SUM(StayedProfit)), 0), 2) AS ProfitGrowth
+	FROM (
+		SELECT
+			t.GameID,
+			t.bScore AS DealerPointsIfStayed,
+			SUM(CASE
+				WHEN p.PlayerScore > 21 THEN 1
+				WHEN t.bScore <= 21 AND t.bScore > p.PlayerScore THEN 1
+				WHEN t.bScore <= 21 AND t.bScore < p.PlayerScore THEN -1
+				ELSE 0
+			END) AS StayedProfit,
+			SUM(CASE
+				WHEN p.Result = 'Lose' THEN 1
+				WHEN p.Result = 'Win' THEN -1
+				ELSE 0
+			END) AS ActualProfit
+		FROM logturn t
+		JOIN logcompareresult p ON t.GameID = p.GameID
+		WHERE t.PlayerID = 0
+			AND t.Action = 'Hit'
+			AND t.bScore >= 15
+			AND t.bScore != t.aScore
+		GROUP BY t.GameID, t.bScore
+	) AS ProfitComparison
+	GROUP BY DealerPointsIfStayed
+	ORDER BY DealerPointsIfStayed;
