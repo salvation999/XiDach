@@ -5,7 +5,6 @@
 #include <random>
 #include <fstream>
 #include <cstdlib>
-#include <ctime>
 
 using namespace std;
 
@@ -92,16 +91,21 @@ private:
     int numberOfAces; // Kiểm tra số lượng Aces trong tay để xử lý điểm số chính xác
     int numberOfAcesIs1; // Kiểm tra số lượng Aces đã được tính là 1 để điều chỉnh điểm số khi cần thiết
     string result; // Biến để lưu kết quả của người chơi sau khi so sánh với dealer, có thể là "Win", "Lose" hoặc "Tie"
+    bool checkBetter28;
 protected:
     string Action; // Lưu hành động của người chơi (Hit hoặc Stand)
 public:
-    Participant(int id) : ID(id), score(0), money(5000), Action(""), numberOfAces(0), numberOfAcesIs1(0), result("") {}
+    Participant(int id) : ID(id), score(0), money(5000), Action(""), numberOfAces(0), numberOfAcesIs1(0), result(""), checkBetter28(false) {}
 
     void SetScore(int s) { score = s; }
 
     int getID() const { return ID; }
 
     void setResult(string res) { result = res; }
+
+    void setcheckPoint(bool check) {checkBetter28 = check;}
+
+    bool getCheckBetter28() {return checkBetter28;}
 
     string getResult() const { return result; }
 
@@ -205,6 +209,7 @@ public:
         numberOfAcesIs1 = 0;
         Action = "";
         result = "";
+        checkBetter28 = false;
     }
 
     int getMoney() const { return money; }
@@ -287,6 +292,13 @@ public:
             receiveCard(deck.drawCard());
             Action = "Hit"; // RecklessPlayer quyết định rút thêm bài nếu điểm số dưới 19
             LogTurn(turnFile, gameID, getID(), turnNumber, getHandString(), bScore, Action, getHand().back().getRank() + getHand().back().getSuit()[0], getScore());
+        } else if (getScore() == 18 && getHandSize() == 4) {
+            int bScore = getScore();
+            receiveCard(deck.drawCard());
+            Action = "Hit"; // RecklessPlayer quyết định rút thêm bài nếu điểm số là 18 và đã có 4 lá bài trong tay
+            LogTurn(turnFile, gameID, getID(), turnNumber, getHandString(), bScore, Action, getHand().back().getRank() + getHand().back().getSuit()[0], getScore());
+            if (getScore() >= 28)
+                setcheckPoint(true);
         } else {
             Action = "Stand"; // RecklessPlayer quyết định dừng lại nếu điểm số là 19 hoặc cao hơn
             LogTurn(turnFile, gameID, getID(), turnNumber, getHandString(), getScore(), Action, "", getScore());
@@ -390,9 +402,24 @@ public:
         CheckResult(dealer, player);
         string result = player->getResult();
         if (result == "Win") {
-            numberOfPlayersWin++;
-            player->addMoney(1); // Giả sử mỗi lần thắng người chơi nhận được 1 đơn vị tiền
-            dealer->subtractMoney(1); // Dealer mất 1 đơn vị tiền mỗi khi người chơi thắng
+            if (players.size() >= 3) {
+                // Nếu ở trong Mode 1 thì player[2] là RecklessPlayer nên có nguy cơ 28 điểm
+                // Tuy nhiên, nếu ở Mode 2 thì player[2] không bao giờ có thể rút đến 28 điểm
+                if (players[2]->getCheckBetter28()) {
+                    player->addMoney(1); // Giả sử mỗi lần thắng người chơi nhận được 1 đơn vị tiền
+                    players[2]->subtractMoney(1); // RecklessPlayer mất 1 đơn vị tiền mỗi khi người chơi thắng
+                }
+                else {
+                    numberOfPlayersWin++;
+                    player->addMoney(1); // Giả sử mỗi lần thắng người chơi nhận được 1 đơn vị tiền
+                    dealer->subtractMoney(1); // Dealer mất 1 đơn vị tiền mỗi khi người chơi thắng
+                }
+            }
+            else {
+                numberOfPlayersWin++;
+                player->addMoney(1); // Giả sử mỗi lần thắng người chơi nhận được 1 đơn vị tiền
+                dealer->subtractMoney(1); // Dealer mất 1 đơn vị tiền mỗi khi người chơi thắng
+            }
         } else if (result == "Lose") {
             numberOfPlayersLose++;
             player->subtractMoney(1); // Giả sử mỗi lần thua người chơi mất 1 đơn vị tiền
@@ -478,19 +505,63 @@ int main() {
     resultFile << "GameID,PlayerID,Result,CurrentMoney\n";
     compareFile << "GameID,PlayerID,PlayerCard,PlayerScore,DealerCard,DealerScore,Result\n";
     Dealer* dealer = new Dealer(0); // Tạo một đối tượng dealer với ID 0
-    vector<Player*> players;
-    players.push_back(new FunkyPlayer(1));
-    players.push_back(new OptimalPlayer(2));
-    players.push_back(new RecklessPlayer(3));
-    int gameID = 1; // Khởi tạo game ID để theo dõi từng game một cách riêng biệt trong file log
-    int numberOfGames;
-    cout << "Enter the number of simulated games: ";
-    cin >> numberOfGames;
-    for (int i = 0; i < numberOfGames; ++i) {
-        Game game(gameID, players, dealer, turnFile, resultFile, compareFile); // Tạo một trò chơi mới với số lượng người chơi ngẫu nhiên
-        game.startGame(); // Bắt đầu trò chơi
-        gameID++; // Tăng ID trò chơi cho trò chơi tiếp theo
+    cout << "Chon mo phong theo tinh cach nguoi choi (So 1) hoac mo phong theo so luong nguoi choi (So 2): ";
+    int select;
+    cin >> select;
+    ofstream configFile("config.txt");
+    configFile << select;
+    configFile.close();
+    if (select == 1) {
+        vector<Player*> players;
+        players.push_back(new FunkyPlayer(1));
+        players.push_back(new OptimalPlayer(2));
+        players.push_back(new RecklessPlayer(3));
+        int gameID = 1; // Khởi tạo game ID để theo dõi từng game một cách riêng biệt trong file log
+        int numberOfGames;
+        cout << "Enter the number of simulated games: ";
+        cin >> numberOfGames;
+        for (int i = 0; i < numberOfGames; ++i) {
+            Game game(gameID, players, dealer, turnFile, resultFile, compareFile); // Tạo một trò chơi mới với số lượng người chơi ngẫu nhiên
+            game.startGame(); // Bắt đầu trò chơi
+            gameID++; // Tăng ID trò chơi cho trò chơi tiếp theo
+        }
     }
+    else if (select == 2) {
+        int numPlayer;
+        cout << "\nNhap so luong nguoi choi: ";
+        cin >> numPlayer;
+        cout <<"\n";
+        vector<Player*> players;
+        int ID = 1;
+        cout << "Nguoi choi se co ba tinh cach:\n";
+        cout << "1 - Ke Nhat Gan (Press 1)\n";
+        cout << "2 - Nguoi Toi Uu (Press 2)\n";
+        cout << "3 - Ke Mau Lieu (Press 3)\n";
+        for (int i = 0; i < numPlayer; i++) {
+            int choose;            
+            cout << "Chon tinh cach cho Player " << i+1 << ": ";
+            cin >> choose;
+            if (choose == 1) {
+                players.push_back(new FunkyPlayer(ID++));
+            }
+            else if (choose == 2) {
+                players.push_back(new OptimalPlayer(ID++));
+            }
+            else if (choose == 3) {
+                players.push_back(new RecklessPlayer(ID++));
+            }
+        }
+        int gameID = 1;
+        int numberOfGames;
+        cout << "Enter the number of simulated games: ";
+        cin >> numberOfGames;
+        for (int i = 0; i < numberOfGames; ++i) {
+            Game game(gameID, players, dealer, turnFile, resultFile, compareFile); // Tạo một trò chơi mới với số lượng người chơi ngẫu nhiên
+            game.startGame(); // Bắt đầu trò chơi
+            gameID++; // Tăng ID trò chơi cho trò chơi tiếp theo
+        }
+    }
+
     turnFile.close();
     resultFile.close();
     compareFile.close();
