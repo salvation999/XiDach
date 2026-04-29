@@ -97,6 +97,8 @@ protected:
 public:
     Participant(int id) : ID(id), score(0), money(5000), Action(""), numberOfAces(0), numberOfAcesIs1(0), result(""), checkBetter28(false) {}
 
+    virtual ~Participant() {}
+
     void SetScore(int s) { score = s; }
 
     int getID() const { return ID; }
@@ -105,7 +107,7 @@ public:
 
     void setcheckPoint(bool check) {checkBetter28 = check;}
 
-    bool getCheckBetter28() {return checkBetter28;}
+    bool getCheckBetter28() const {return checkBetter28;}
 
     string getResult() const { return result; }
 
@@ -216,6 +218,10 @@ public:
 
     void addMoney(int amount) { money += amount; }
     void subtractMoney(int amount) { money -= amount; }
+
+    virtual bool isPenalty() const {
+        return false;
+    }
 };
 
 class Player : public Participant {
@@ -290,7 +296,7 @@ public:
         if (getScore() < 18) {
             int bScore = getScore();
             receiveCard(deck.drawCard());
-            Action = "Hit"; // RecklessPlayer quyết định rút thêm bài nếu điểm số dưới 19
+            Action = "Hit"; // RecklessPlayer quyết định rút thêm bài nếu điểm số dưới 18
             LogTurn(turnFile, gameID, getID(), turnNumber, getHandString(), bScore, Action, getHand().back().getRank() + getHand().back().getSuit()[0], getScore());
         } else if (getScore() == 18 && getHandSize() == 4) {
             int bScore = getScore();
@@ -300,9 +306,13 @@ public:
             if (getScore() >= 28)
                 setcheckPoint(true);
         } else {
-            Action = "Stand"; // RecklessPlayer quyết định dừng lại nếu điểm số là 19 hoặc cao hơn
+            Action = "Stand"; // RecklessPlayer quyết định dừng lại nếu điểm số là 18 và có từ 3 lá trở xuống hoặc điểm số là 19 hoặc cao hơn
             LogTurn(turnFile, gameID, getID(), turnNumber, getHandString(), getScore(), Action, "", getScore());
         }
+    }
+
+    bool isPenalty() const override {
+        return getCheckBetter28();
     }
 };
 
@@ -337,13 +347,14 @@ private:
     int gameID;
     Deck deck;
     vector<Player*>& players;
+    Player* FirstdebtPlayer;
     Dealer*& dealer;
     int numberOfPlayersWin, numberOfPlayersLose, numberOfPlayersTie;
     ofstream& turnFile;
     ofstream& resultFile;
     ofstream& compareFile;
 public:
-    Game(int id, vector<Player*>& playerList, Dealer*& dealerPtr, ofstream& turnFileRef, ofstream& resultFileRef, ofstream& compareFileRef) : gameID(id), players(playerList), dealer(dealerPtr), numberOfPlayersWin(0), numberOfPlayersLose(0), numberOfPlayersTie(0), turnFile(turnFileRef), resultFile(resultFileRef), compareFile(compareFileRef) {}
+    Game(int id, vector<Player*>& playerList, Dealer*& dealerPtr, ofstream& turnFileRef, ofstream& resultFileRef, ofstream& compareFileRef) : gameID(id), players(playerList), FirstdebtPlayer(nullptr), dealer(dealerPtr), numberOfPlayersWin(0), numberOfPlayersLose(0), numberOfPlayersTie(0), turnFile(turnFileRef), resultFile(resultFileRef), compareFile(compareFileRef) {}
 
     void ResetPlayers() {
         dealer->clearHand();
@@ -395,19 +406,22 @@ public:
         else {
             player->setResult("Tie");
         }
+        if (playerScore >= 28 && FirstdebtPlayer == nullptr) {
+            FirstdebtPlayer = player;
+        }
         LogCompareResult(compareFile, gameID, player->getID(), player->getHandString(), player->getScore(), dealer->getHandString(), dealer->getScore(), player->getResult()); // Ghi log kết quả so sánh giữa người chơi và dealer
     }
 
-    void ResultAndLog(Dealer*& dealer, Player*& player) {
+    void ResultAndLog(Dealer*& dealer, Player*& player, Player*& debtPlayer) {
         CheckResult(dealer, player);
         string result = player->getResult();
         if (result == "Win") {
             if (players.size() >= 3) {
                 // Nếu ở trong Mode 1 thì player[2] là RecklessPlayer nên có nguy cơ 28 điểm
                 // Tuy nhiên, nếu ở Mode 2 thì player[2] không bao giờ có thể rút đến 28 điểm
-                if (players[2]->getCheckBetter28()) {
+                if (debtPlayer != nullptr) {
                     player->addMoney(1); // Giả sử mỗi lần thắng người chơi nhận được 1 đơn vị tiền
-                    players[2]->subtractMoney(1); // RecklessPlayer mất 1 đơn vị tiền mỗi khi người chơi thắng
+                    debtPlayer->subtractMoney(1); // RecklessPlayer mất 1 đơn vị tiền mỗi khi người chơi thắng
                 }
                 else {
                     numberOfPlayersWin++;
@@ -433,7 +447,7 @@ public:
     void SmartDealerTurn() {
         if (dealer->SpecialWin() >= 2) {
             for (auto player : players) {
-                ResultAndLog(dealer, player); // Kiểm tra kết quả của từng người chơi với dealer nếu dealer có hand đặc biệt
+                ResultAndLog(dealer, player, FirstdebtPlayer); // Kiểm tra kết quả của từng người chơi với dealer nếu dealer có hand đặc biệt
             }
         }
         else {
@@ -442,7 +456,7 @@ public:
                 if (dealer->getScore() >= 15) {
                     for (auto& player : players) {
                         if (player->getHandSize() >= 3 && player->getHandSize() <= 4 && player->getResult() == "") {
-                            ResultAndLog(dealer, player); // Kiểm tra kết quả của từng người chơi với dealer nếu người chơi có từ 3 đến 4 lá bài và chưa có kết quả
+                            ResultAndLog(dealer, player, FirstdebtPlayer); // Kiểm tra kết quả của từng người chơi với dealer nếu người chơi có từ 3 đến 4 lá bài và chưa có kết quả
                         }
                     }
                 }
@@ -455,7 +469,7 @@ public:
     void ResultAndLogAll() {
         for (auto& player : players) {
             if (player->getResult() == "") {
-                ResultAndLog(dealer, player); // Kiểm tra kết quả của tất cả người chơi với dealer nếu chưa có kết quả
+                ResultAndLog(dealer, player, FirstdebtPlayer); // Kiểm tra kết quả của tất cả người chơi với dealer nếu chưa có kết quả
             }
         }
     }
@@ -507,17 +521,14 @@ int main() {
     Dealer* dealer = new Dealer(0); // Tạo một đối tượng dealer với ID 0
     cout << "Chon mo phong theo tinh cach nguoi choi (So 1) hoac mo phong theo so luong nguoi choi (So 2): ";
     int select;
+    int numberOfGames;
+    vector<Player*> players;
     cin >> select;
-    ofstream configFile("config.txt");
-    configFile << select;
-    configFile.close();
     if (select == 1) {
-        vector<Player*> players;
         players.push_back(new FunkyPlayer(1));
         players.push_back(new OptimalPlayer(2));
         players.push_back(new RecklessPlayer(3));
         int gameID = 1; // Khởi tạo game ID để theo dõi từng game một cách riêng biệt trong file log
-        int numberOfGames;
         cout << "Enter the number of simulated games: ";
         cin >> numberOfGames;
         for (int i = 0; i < numberOfGames; ++i) {
@@ -531,7 +542,6 @@ int main() {
         cout << "\nNhap so luong nguoi choi: ";
         cin >> numPlayer;
         cout <<"\n";
-        vector<Player*> players;
         int ID = 1;
         cout << "Nguoi choi se co ba tinh cach:\n";
         cout << "1 - Ke Nhat Gan (Press 1)\n";
@@ -552,7 +562,6 @@ int main() {
             }
         }
         int gameID = 1;
-        int numberOfGames;
         cout << "Enter the number of simulated games: ";
         cin >> numberOfGames;
         for (int i = 0; i < numberOfGames; ++i) {
@@ -561,10 +570,16 @@ int main() {
             gameID++; // Tăng ID trò chơi cho trò chơi tiếp theo
         }
     }
-
+    ofstream configFile("config.txt");
+    configFile << select << "\n";
+    configFile << numberOfGames;
+    configFile.close();
     turnFile.close();
     resultFile.close();
     compareFile.close();
+    delete dealer;
+    for (auto p : players)
+        delete p;
     cout << "End of program!" << endl;
     return 0;
 }
