@@ -91,11 +91,10 @@ private:
     int numberOfAces; // Kiểm tra số lượng Aces trong tay để xử lý điểm số chính xác
     int numberOfAcesIs1; // Kiểm tra số lượng Aces đã được tính là 1 để điều chỉnh điểm số khi cần thiết
     string result; // Biến để lưu kết quả của người chơi sau khi so sánh với dealer, có thể là "Win", "Lose" hoặc "Tie"
-    bool checkBetter28;
 protected:
     string Action; // Lưu hành động của người chơi (Hit hoặc Stand)
 public:
-    Participant(int id) : ID(id), score(0), money(5000), Action(""), numberOfAces(0), numberOfAcesIs1(0), result(""), checkBetter28(false) {}
+    Participant(int id) : ID(id), score(0), money(5000), Action(""), numberOfAces(0), numberOfAcesIs1(0), result(""){}
 
     virtual ~Participant() {}
 
@@ -104,10 +103,6 @@ public:
     int getID() const { return ID; }
 
     void setResult(string res) { result = res; }
-
-    void setcheckPoint(bool check) {checkBetter28 = check;}
-
-    bool getCheckBetter28() const {return checkBetter28;}
 
     string getResult() const { return result; }
 
@@ -211,7 +206,6 @@ public:
         numberOfAcesIs1 = 0;
         Action = "";
         result = "";
-        checkBetter28 = false;
     }
 
     int getMoney() const { return money; }
@@ -230,15 +224,15 @@ public:
     virtual void MakeDecision(Deck& deck, int gameID, int turnNumber, ofstream& turnFile) override = 0;
 };
 
-class FunkyPlayer : public Player {
+class RabbityPlayer : public Player {
 public:
-    FunkyPlayer(int id) : Player(id) {}
+    RabbityPlayer(int id) : Player(id) {}
     void MakeDecision(Deck& deck, int gameID, int turnNumber, ofstream& turnFile) override {
-        // Logic quyết định của FunkyPlayer
+        // Logic quyết định của RabbityPlayer
         if (getHandSize() == 5) {
-            Action = "Stand"; // FunkyPlayer quyết định dừng lại nếu đã có 5 lá bài trong tay
+            Action = "Stand"; // RabbityPlayer quyết định dừng lại nếu đã có 5 lá bài trong tay
             if (getScore() <= 21) {
-                Action = "Ngu Linh"; // Nếu có 5 lá bài trong tay và điểm số không vượt quá 21, thì đây là một hand đặc biệt "Five Cards"
+                Action = "Ngu Linh"; // Nếu có 5 lá bài trong tay và điểm số không vượt quá 21, thì đây là một hand đặc biệt
             }
             LogTurn(turnFile, gameID, getID(), turnNumber, getHandString(), getScore(), Action, "", getScore()); // Ghi log cho trường hợp có 5 lá bài trong tay
             return;
@@ -246,10 +240,10 @@ public:
         if (getScore() < 16) {
             int bScore = getScore();
             receiveCard(deck.drawCard());
-            Action = "Hit"; // FunkyPlayer quyết định rút thêm bài nếu điểm số dưới 16
+            Action = "Hit"; // RabbityPlayer quyết định rút thêm bài nếu điểm số dưới 16
             LogTurn(turnFile, gameID, getID(), turnNumber, getHandString(), bScore, Action, getHand().back().getRank() + getHand().back().getSuit()[0], getScore()); // Ghi log cho trường hợp rút thêm bài
         } else {
-            Action = "Stand"; // FunkyPlayer quyết định dừng lại nếu điểm số là 16 hoặc cao hơn
+            Action = "Stand"; // RabbityPlayer quyết định dừng lại nếu điểm số là 16 hoặc cao hơn
             LogTurn(turnFile, gameID, getID(), turnNumber, getHandString(), getScore(), Action, "", getScore()); // Ghi log cho trường hợp dừng lại
         }
     }
@@ -303,8 +297,6 @@ public:
             receiveCard(deck.drawCard());
             Action = "Hit"; // RecklessPlayer quyết định rút thêm bài nếu điểm số là 18 và đã có 4 lá bài trong tay
             LogTurn(turnFile, gameID, getID(), turnNumber, getHandString(), bScore, Action, getHand().back().getRank() + getHand().back().getSuit()[0], getScore());
-            if (getScore() >= 28)
-                setcheckPoint(true);
         } else {
             Action = "Stand"; // RecklessPlayer quyết định dừng lại nếu điểm số là 18 và có từ 3 lá trở xuống hoặc điểm số là 19 hoặc cao hơn
             LogTurn(turnFile, gameID, getID(), turnNumber, getHandString(), getScore(), Action, "", getScore());
@@ -312,7 +304,7 @@ public:
     }
 
     bool isPenalty() const override {
-        return getCheckBetter28();
+        return getScore() >= 28;
     }
 };
 
@@ -324,7 +316,7 @@ public:
         if (getHandSize() == 5) {
             Action = "Stand"; // Dealer quyết định dừng lại nếu đã có 5 lá bài trong tay
             if (getScore() <= 21) {
-                Action = "Ngu Linh"; // Nếu có 5 lá bài trong tay và điểm số không vượt quá 21, thì đây là một hand đặc biệt "Five Cards"
+                Action = "Ngu Linh"; // Nếu có 5 lá bài trong tay và điểm số không vượt quá 21, thì đây là một hand đặc biệt
             }
             LogTurn(turnFile, gameID, 0, turnNumber, getHandString(), getScore(), Action, "", getScore()); // Ghi log cho trường hợp có 5 lá bài trong tay
             return;
@@ -525,7 +517,7 @@ int main() {
     vector<Player*> players;
     cin >> select;
     if (select == 1) {
-        players.push_back(new FunkyPlayer(1));
+        players.push_back(new RabbityPlayer(1));
         players.push_back(new OptimalPlayer(2));
         players.push_back(new RecklessPlayer(3));
         int gameID = 1; // Khởi tạo game ID để theo dõi từng game một cách riêng biệt trong file log
@@ -552,7 +544,7 @@ int main() {
             cout << "Chon tinh cach cho Player " << i+1 << ": ";
             cin >> choose;
             if (choose == 1) {
-                players.push_back(new FunkyPlayer(ID++));
+                players.push_back(new RabbityPlayer(ID++));
             }
             else if (choose == 2) {
                 players.push_back(new OptimalPlayer(ID++));
