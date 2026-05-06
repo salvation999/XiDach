@@ -122,8 +122,8 @@ public:
             if (score + 11 <= 21 && (getHandSize() <= 3)) {
                 score += 11; // A có thể được tính là 11 nếu cộng lại không vượt quá 21 và số lượng bài trong tay không quá 3
             } 
-            else if (score + 10 <= 21 && getHandSize() == 3) {
-                score += 10; // A có thể được tính là 10 nếu cộng lại không vượt quá 21 và số lượng bài trong tay là 3
+            else if (score + 10 <= 21 && getHandSize() <= 3) {
+                score += 10; // A có thể được tính là 10 nếu cộng lại không vượt quá 21 và số lượng bài trong tay không quá 3
             }
             else {
                 score += 1; // A được tính là 1
